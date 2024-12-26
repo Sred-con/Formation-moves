@@ -19,9 +19,11 @@ public class Control : MonoBehaviour
     //得到射线组件
     private LineRenderer lineRenderer;
     private bool isCheck = false;
+    //存储阵型的相对位置
     private Dictionary<int, List<Vector3>> Destnations = new Dictionary<int,List<Vector3>>();
     //中间变量
     Vector3 Mouse_pos;
+    Vector3 Mouse_Lastpos = Vector3.zero;
     Vector3 Start_pos;
     Vector3 End_pos;
     Vector3 Box_Forward;
@@ -68,6 +70,14 @@ public class Control : MonoBehaviour
         return Vector3.zero;
     }
     /// <summary>
+    /// 开始选择的初始化
+    /// </summary>
+    public void Start_SelectInit()
+    {
+        //初始化矩阵的朝向的起点，下一次选择为第一次选择矩阵
+        Mouse_Lastpos = Vector3.zero;
+    }
+    /// <summary>
     /// 选择士兵
     /// </summary>
     public void Check_Obj()
@@ -75,7 +85,7 @@ public class Control : MonoBehaviour
 
         if (Input.GetMouseButtonDown(0))
         {
-            Cancel_SelectObj();
+            Start_SelectInit();
             Start_pos = GetMouseWorldPos();
             isCheck = true;
         }
@@ -109,6 +119,7 @@ public class Control : MonoBehaviour
         //画矩阵
         lineRenderer.positionCount = 4;
         lineRenderer.SetPositions(pos);
+        //生成盒装触发器，得到矩阵内的对象,(中心点，立方体各边长度，旋转，目标Layer)
         colliders = Physics.OverlapBox(Start + (End - Start) / 2, new Vector3(Mathf.Abs(End.x - Start.x) / 2, 1, Mathf.Abs(End.z - Start.z) / 2), Quaternion.identity, 1 << LayerMask.NameToLayer("My_Role"));
         foreach (var item in colliders)
         {
@@ -138,11 +149,21 @@ public class Control : MonoBehaviour
         if (Input.GetMouseButtonDown(1)) {
             Mouse_pos = GetMouseWorldPos();
             CreatDestnation();
+            //按照角色类型和距离鼠标点击位置的距离排序
             Sort_Objs(Mouse_pos);
-            Box_Forward = Mouse_pos - (Start_pos + (End_pos - Start_pos) / 2.0f);
+            //得到鼠标点击位置和矩阵中心点的方向的向量作为阵型的朝向
+            if (Mouse_Lastpos != Vector3.zero)
+            {
+                Box_Forward = Mouse_pos - Mouse_Lastpos;
+            }
+            else
+            {
+                Box_Forward = Mouse_pos - (Start_pos + (End_pos - Start_pos) / 2.0f);
+            }
+            Mouse_Lastpos = Mouse_pos;
             for (int i = 0; i < obj_roles.Count; i++)
             {
-                
+                //负数因为unity的坐标系和数学坐标系不一样
                 obj_roles[i].SetDestnation(Quaternion.Euler(0,-(Mathf.Atan2(Box_Forward.z, Box_Forward.x) * Mathf.Rad2Deg - 90),0) * Destnation[i] + Mouse_pos);
             }
 
@@ -165,9 +186,7 @@ public class Control : MonoBehaviour
             }
             else
                 return -1;
-            
-
-
+   
         });
 
     }
@@ -183,9 +202,8 @@ public class Control : MonoBehaviour
 
     }
     /// <summary>
-    /// 生成目标点
+    /// 生成阵型的相对位置
     /// </summary>
-    /// <param 所有目标点的中心="pos"></param>
     public void CreatDestnation()
     {
        
@@ -194,8 +212,7 @@ public class Control : MonoBehaviour
             Destnation = Destnations[obj_roles.Count];
             return;
         }
-        if(Destnations.ContainsValue(Destnation))
-             Destnation = new List<Vector3>();
+        Destnation = new List<Vector3>();
         if (obj_roles.Count <= 3)
         {
             CreatSingleDestnation(Vector3.zero, obj_roles.Count);
@@ -214,14 +231,14 @@ public class Control : MonoBehaviour
         }
         if(excess_col > 0)
         {
-            CreatSingleDestnation(new Vector3(x,y, - z),new Vector3(x + (row - 1) * dis,y, - z),excess_col);
+            CreatSingleDestnation(new Vector3(x,y, -z),new Vector3(x + (row - 1) * dis,y, -z),excess_col);
         }
         Destnations.Add(obj_roles.Count, new List<Vector3>(Destnation));
 
 
     }
     /// <summary>
-    /// 生成一行的排列
+    /// 生成一行的相对位置
     /// </summary>
     /// <param 一行的起点="start"></param>
     /// <param 一行的终点="end"></param>
@@ -235,11 +252,11 @@ public class Control : MonoBehaviour
         }
         if (cnt % 2 == 1)
         {
-            Destnation.Add(new Vector3(start.x + Mathf.Abs(end.x - start.x) * 1.0f / 2, start.y, start.z));
+            Destnation.Add(new Vector3(start.x + Mathf.Abs(end.x - start.x) / 2, start.y, start.z));
         }
     }
     /// <summary>
-    /// 生成一行的排列
+    /// 生成一行的相对位置
     /// </summary>
     /// <param 一行的中点="pos"></param>
     /// <param 一行的数量="cnt"></param>
